@@ -20,7 +20,7 @@ Usage:
     python scrape.py                 # scrape every supported URL in url_list.txt
     python scrape.py --limit 20      # only the first 20 products (quick test)
     python scrape.py --keep-original # also keep the source image next to the webp
-    python scrape.py --out mydir     # output directory (default: ./output)
+    python scrape.py --out mydir     # output directory (default: ./in)
 
 By default images that already exist are skipped (re-runs are incremental and
 never overwrite). Pass --overwrite to re-download and replace them.
@@ -267,7 +267,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--urls", default="url_list.txt", help="file of shop URLs")
-    ap.add_argument("--out", default="output", help="output directory")
+    ap.add_argument("--out", default="in", help="output directory")
     ap.add_argument("--limit", type=int, default=0,
                     help="max products to process per site (0 = all)")
     ap.add_argument("--quality", type=int, default=90, help="WebP quality 1-100")

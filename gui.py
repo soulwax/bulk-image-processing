@@ -2,11 +2,10 @@
 """
 gui.py — A small Tkinter front-end for process.py.
 
-Works on a whole folder: it lists every image (auto-loading ./output on start),
-lets you click or arrow through them, and previews the current settings on the
-selected one. "Process whole folder →" applies those settings to every image at
-once (default destination ./results), with a progress bar and the same
-skip-existing / overwrite behaviour as the CLI.
+Works on a whole folder: it lists every image, lets you click or arrow through
+them, and previews the current settings on the selected one. "Process whole
+folder →" applies those settings to every image at once, with a progress bar and
+the same skip-existing / overwrite behaviour as the CLI.
 
 Shows a live BEFORE / AFTER preview at the top and all of the processing
 settings (magic wand, iPhone-style sliders, rotation, resize, quality)
@@ -17,9 +16,9 @@ The image maths is NOT duplicated here: the GUI imports process.py and calls
 process.transform_image() with a process.default_args() namespace, so the CLI
 and the GUI always produce identical output.
 
-    python gui.py                 # open the editor (auto-loads ./output if present)
-    python gui.py path/to/img.webp   # open that image's folder, selecting it
-    python gui.py path/to/folder     # open a specific folder
+    python gui.py                 # opens the editor and creates ./in and ./out if needed
+    python gui.py path/to/img.webp   # opens that image's folder, selecting it
+    python gui.py path/to/folder     # opens a specific folder
 
 The command line tool (process.py) still works exactly as before; this is an
 optional companion, not a replacement.
@@ -42,7 +41,7 @@ from PIL import Image, ImageTk
 
 import process  # single source of truth for the image pipeline
 
-PREVIEW_MAX = 360          # px, size of each preview pane
+PREVIEW_MAX = 300          # px, size of each preview pane
 CHECKER = (235, 235, 235), (200, 200, 200)   # transparency checkerboard colours
 
 # Slider spec: (attr name on args, label, min, max, default, resolution).
@@ -60,6 +59,13 @@ SLIDERS = [
     ("sharpness",      "Sharpness",    -100, 100,   0, 1),
     ("vignette",       "Vignette",     -100, 100,   0, 1),
 ]
+
+
+def ensure_directory(path: str | Path) -> Path:
+    """Create a directory (and any missing parents) relative to the current execution folder."""
+    target = Path(path)
+    target.mkdir(parents=True, exist_ok=True)
+    return target
 
 
 def checkerboard(size: tuple[int, int], square: int = 12) -> Image.Image:
@@ -87,8 +93,9 @@ def fit_preview(im: Image.Image, box: int = PREVIEW_MAX) -> Image.Image:
 class EditorApp:
     def __init__(self, root: tk.Tk, initial: Path | None = None):
         self.root = root
-        root.title("Strain image editor — process.py front-end")
-        root.minsize(760, 640)
+        root.title("Batch image processor — process.py front-end")
+        root.minsize(760, 560)
+        root.geometry("1080x620")
 
         self.src_path: Path | None = None
         self.src_image: Image.Image | None = None   # full-res original (RGBA)
@@ -106,13 +113,16 @@ class EditorApp:
 
         self._build_ui()
 
-        # Startup: an explicit file wins; otherwise auto-load ./output if present.
+        # Startup: create the default working folders in the current execution directory,
+        # then load the default input folder if it exists.
+        ensure_directory(Path.cwd() / "in")
+        ensure_directory(Path.cwd() / "out")
         if initial and initial.is_file():
             self.load_folder(initial.parent, select=initial)
         elif initial and initial.is_dir():
             self.load_folder(initial)
         else:
-            default_dir = Path("output")
+            default_dir = Path.cwd() / "in"
             if default_dir.is_dir():
                 self.load_folder(default_dir)
 
@@ -135,6 +145,13 @@ class EditorApp:
         # Controls area underneath.
         controls = ttk.Frame(self.root, padding=(8, 0, 8, 8))
         controls.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        ttk.Label(
+            controls,
+            text="Batch workflow: drop source images into ./in, then process them to ./out.",
+            foreground="#2f5d7a",
+            wraplength=980,
+            justify=tk.LEFT,
+        ).pack(side=tk.TOP, anchor=tk.W, pady=(0, 6))
         self._build_toolbar(controls)
         self._build_sliders(controls)
         self._build_geometry(controls)
@@ -167,7 +184,7 @@ class EditorApp:
         list_wrap = ttk.Frame(frame)
         list_wrap.pack(side=tk.TOP, fill=tk.Y, expand=True, pady=(4, 0))
         sb = ttk.Scrollbar(list_wrap, orient=tk.VERTICAL)
-        self.listbox = tk.Listbox(list_wrap, width=26, height=16,
+        self.listbox = tk.Listbox(list_wrap, width=26, height=12,
                                   activestyle="dotbox",
                                   yscrollcommand=sb.set, exportselection=False)
         sb.config(command=self.listbox.yview)
@@ -184,7 +201,7 @@ class EditorApp:
 
     def _build_toolbar(self, parent):
         bar = ttk.Frame(parent)
-        bar.pack(side=tk.TOP, fill=tk.X, pady=(6, 4))
+        bar.pack(side=tk.TOP, fill=tk.X, pady=(2, 4))
 
         ttk.Button(bar, text="Open folder…", command=self.on_open_folder).pack(side=tk.LEFT)
         ttk.Button(bar, text="Open image…", command=self.on_open).pack(side=tk.LEFT, padx=(6, 0))
@@ -443,7 +460,11 @@ class EditorApp:
 
     # ---- output ----------------------------------------------------------- #
     def on_open_folder(self):
-        path = filedialog.askdirectory(title="Open a folder of images")
+        default_in = Path.cwd() / "in"
+        path = filedialog.askdirectory(
+            title="Open a folder of images",
+            initialdir=str(default_in if default_in.exists() else Path.cwd()),
+        )
         if path:
             self.load_folder(Path(path))
 
@@ -468,10 +489,12 @@ class EditorApp:
             initialfile=default, filetypes=[("WebP", "*.webp")])
         if not path:
             return
+        save_path = Path(path)
+        ensure_directory(save_path.parent)
         rng = random.Random(self.args.seed if self.args.seed is not None else 0)
         out = process.transform_image(self.src_image, self.args, self._current_angle(rng))
-        out.save(path, format="WEBP", quality=self.args.quality, method=6)
-        self.status.set(f"Saved {path}")
+        out.save(save_path, format="WEBP", quality=self.args.quality, method=6)
+        self.status.set(f"Saved {save_path}")
 
     def on_batch(self):
         """Apply the current settings to every image in the loaded folder."""
@@ -490,14 +513,15 @@ class EditorApp:
             messagebox.showinfo("Process folder", f"No images found in {in_p}")
             return
 
-        # Destination: default to ./results, let the user confirm/redirect.
-        default_out = "results"
+        # Destination: default to ./out, let the user confirm/redirect.
+        default_out = Path.cwd() / "out"
         out_dir = filedialog.askdirectory(
             title=f"Destination folder for {len(images)} processed images",
-            initialdir=str(Path(default_out).resolve().parent))
+            initialdir=str(default_out))
         if not out_dir:
             return
         out_p = Path(out_dir)
+        ensure_directory(out_p)
 
         self._sync_args()
         self.args.in_dir = str(in_p)
@@ -546,6 +570,10 @@ class EditorApp:
         parts = ["python process.py"]
         if self.args.magic_wand:
             parts.append("--magic-wand")
+        if self.args.in_dir != "in":
+            parts.append(f"--in {self.args.in_dir}")
+        if self.args.out_dir != "out":
+            parts.append(f"--out {self.args.out_dir}")
         for attr, label, *_ in SLIDERS:
             v = getattr(self.args, attr)
             if v:
@@ -577,7 +605,13 @@ def main() -> int:
     root = tk.Tk()
     # A slightly nicer default theme where available.
     try:
-        ttk.Style().theme_use("clam")
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("TFrame", background="#f4f7fb")
+        style.configure("TLabelframe", background="#f4f7fb")
+        style.configure("TLabelframe.Label", background="#f4f7fb")
+        style.configure("TLabel", background="#f4f7fb")
+        style.configure("TButton", padding=(8, 4))
     except tk.TclError:
         pass
     EditorApp(root, initial)

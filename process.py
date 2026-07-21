@@ -2,9 +2,9 @@
 """
 process.py — Post-process the scraped strain images, iPhone-Photos style.
 
-For every image in ./output it applies a chain of adjustments (all optional,
+For every image in ./in it applies a chain of adjustments (all optional,
 all flags), optionally rotates it, downscales so neither side exceeds a cap,
-and writes the result (WebP) into ./results with the same filename.
+and writes the result (WebP) into ./out with the same filename.
 
 The colour/tone adjustments mirror the sliders in Apple's Photos "Edit" panel.
 Each one takes a value in the iPhone range -100..+100 where 0 = no change,
@@ -36,7 +36,7 @@ Legacy / geometry / output flags:
     --max-size     cap the longest side in px            (default: 512; 0 = off)
     --quality      WebP quality 1-100                     (default: 90)
     --seed         reproducible random rotation angles (with --rotate random)
-    --in / --out   source / destination dirs             (default: output/results)
+    --in / --out   source / destination dirs             (default: in/out)
 
 Rotation is on-demand only: nothing is turned unless you pass --rotate.
 
@@ -319,8 +319,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("--in", dest="in_dir", default="output", help="source directory")
-    ap.add_argument("--out", dest="out_dir", default="results", help="output directory")
+    ap.add_argument("--in", dest="in_dir", default="in", help="source directory")
+    ap.add_argument("--out", dest="out_dir", default="out", help="output directory")
 
     # One-shot auto-enhance (the "magic wand"). Runs before any manual sliders.
     ap.add_argument("--magic-wand", action="store_true",
