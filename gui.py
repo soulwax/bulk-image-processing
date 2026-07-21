@@ -95,7 +95,9 @@ class EditorApp:
         self.root = root
         root.title("Batch image processor — process.py front-end")
         root.minsize(760, 560)
-        root.geometry("1080x620")
+        root.geometry("1120x660")
+        root.option_add("*Font", "Arial 9")
+        root.configure(bg="#0f172a")
 
         self.src_path: Path | None = None
         self.src_image: Image.Image | None = None   # full-res original (RGBA)
@@ -128,8 +130,27 @@ class EditorApp:
 
     # ---- UI construction -------------------------------------------------- #
     def _build_ui(self) -> None:
+        banner = ttk.Frame(self.root, padding=(16, 14, 16, 10))
+        banner.pack(side=tk.TOP, fill=tk.X)
+        tk.Label(
+            banner,
+            text="Batch image processor",
+            font=("Arial", 13, "bold"),
+            bg="#0f172a",
+            fg="#f8fafc",
+        ).pack(anchor=tk.W)
+        tk.Label(
+            banner,
+            text="Drop source images into ./in, tune the look, and export polished WebP files to ./out.",
+            font=("Arial", 9),
+            bg="#0f172a",
+            fg="#94a3b8",
+        ).pack(anchor=tk.W, pady=(2, 0))
+
+        ttk.Separator(self.root, orient=tk.HORIZONTAL).pack(side=tk.TOP, fill=tk.X, pady=(0, 6))
+
         # Top area: a file list on the left, the before/after previews on the right.
-        top = ttk.Frame(self.root, padding=8)
+        top = ttk.Frame(self.root, padding=(10, 6, 10, 8))
         top.pack(side=tk.TOP, fill=tk.BOTH, expand=False)
 
         self._build_filelist(top)
@@ -607,11 +628,21 @@ def main() -> int:
     try:
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure("TFrame", background="#f4f7fb")
-        style.configure("TLabelframe", background="#f4f7fb")
-        style.configure("TLabelframe.Label", background="#f4f7fb")
-        style.configure("TLabel", background="#f4f7fb")
-        style.configure("TButton", padding=(8, 4))
+        style.configure("TFrame", background="#0f172a")
+        style.configure("TLabelframe", background="#0f172a", foreground="#e2e8f0")
+        style.configure("TLabelframe.Label", background="#0f172a", foreground="#e2e8f0", font=("Arial", 9, "bold"))
+        style.configure("TLabel", background="#0f172a", foreground="#f8fafc")
+        style.configure("TButton", padding=(10, 6), background="#1e293b", foreground="#f8fafc")
+        style.map("TButton", background=[("active", "#334155"), ("!disabled", "#1e293b")], foreground=[("active", "#ffffff"), ("!disabled", "#f8fafc")])
+        style.configure("Accent.TButton", padding=(10, 6), background="#4f46e5", foreground="#ffffff")
+        style.map("Accent.TButton", background=[("active", "#4338ca"), ("!disabled", "#4f46e5")], foreground=[("active", "#ffffff"), ("!disabled", "#ffffff")])
+        style.configure("TCheckbutton", background="#0f172a", foreground="#f8fafc")
+        style.configure("TScale", background="#0f172a")
+        style.configure("Horizontal.TProgressbar", background="#4f46e5", troughcolor="#1e293b")
+        style.configure("TEntry", fieldbackground="#111827", foreground="#f8fafc")
+        style.configure("TSpinbox", fieldbackground="#111827", foreground="#f8fafc")
+        style.configure("TScrollbar", background="#1e293b", troughcolor="#0f172a")
+        root.configure(bg="#0f172a")
     except tk.TclError:
         pass
     EditorApp(root, initial)

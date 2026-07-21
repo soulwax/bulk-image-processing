@@ -10,6 +10,6 @@ def test_apply_tone_curve_increases_midtone_contrast() -> None:
 
     assert mapped[0] == 0.0
     assert mapped[-1] == 1.0
-    assert mapped[2] > 0.5
-    assert mapped[1] > 0.25
-    assert mapped[3] < 0.75
+    assert mapped[2] == 0.5
+    assert mapped[1] < 0.25
+    assert mapped[3] > 0.75

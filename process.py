@@ -209,9 +209,9 @@ ADJUSTMENTS = [
 
 
 def _apply_tone_curve(values: np.ndarray) -> np.ndarray:
-    """Apply a subtle S-curve to increase midtone contrast without crushing edges."""
+    """Apply a smooth S-curve to lift midtones without clipping black/white points."""
     values = np.clip(values, 0.0, 1.0)
-    return 1.0 / (1.0 + np.exp(-4.0 * (values - 0.5)))
+    return values * values * (3.0 - 2.0 * values)
 
 
 def magic_wand(im: Image.Image) -> Image.Image:
