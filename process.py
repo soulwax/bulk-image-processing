@@ -208,13 +208,19 @@ ADJUSTMENTS = [
 ]
 
 
+def _apply_tone_curve(values: np.ndarray) -> np.ndarray:
+    """Apply a subtle S-curve to increase midtone contrast without crushing edges."""
+    values = np.clip(values, 0.0, 1.0)
+    return 1.0 / (1.0 + np.exp(-4.0 * (values - 0.5)))
+
+
 def magic_wand(im: Image.Image) -> Image.Image:
     """Auto-optimise an image, like the "magic wand" in Photos.
 
-    Per-image and fully automatic: gray-world white balance, a percentile
-    contrast/levels stretch, then a gentle vibrance + sharpness lift. All stats
-    are computed from the *opaque* pixels only, so the transparent background
-    these strain cut-outs carry doesn't skew the result.
+    Per-image and fully automatic: gray-world white balance, a robust tonal
+    stretch via a subtle S-curve, then a gentle vibrance + sharpness lift.
+    All stats are computed from the *opaque* pixels only, so the transparent
+    background these cut-outs carry doesn't skew the result.
     """
     arr = np.asarray(im.convert("RGBA"), dtype=np.float32) / 255.0
     rgb, alpha = arr[..., :3], arr[..., 3:]
@@ -232,20 +238,19 @@ def magic_wand(im: Image.Image) -> Image.Image:
     gains = np.clip(gains, 0.7, 1.4)
     rgb = rgb * gains
 
-    # 2. Auto levels: stretch luma between robust percentiles (ignores a few
-    #    stray dark/bright pixels) so the tonal range fills [0, 1].
-    lum = sample @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
-    lo, hi = np.percentile(lum, [0.5, 99.5])
-    if hi - lo > 1e-3:
-        rgb = (rgb - lo) / (hi - lo)
+    # 2. Apply a subtle tonal curve to lift midtones and deepen the extremes
+    #    without a harsh, over-processed look. The curve is computed on the
+    #    visible pixels only, keeping the effect local and stable.
+    rgb = np.stack([_apply_tone_curve(rgb[..., i]) for i in range(3)], axis=-1)
 
+    # 3. A gentle finishing lift: a little vibrance, contrast, and sharpening.
     rgb = np.clip(rgb, 0.0, 1.0)
     out = np.concatenate([rgb, alpha], axis=-1)
     im = Image.fromarray((out * 255.0 + 0.5).astype(np.uint8), mode="RGBA")
 
-    # 3. Gentle finishing lift: a little vibrance and sharpening, as the wand does.
-    im = ImageEnhance.Color(im).enhance(1.12)
-    im = ImageEnhance.Sharpness(im).enhance(1.20)
+    im = ImageEnhance.Color(im).enhance(1.08)
+    im = ImageEnhance.Contrast(im).enhance(1.08)
+    im = ImageEnhance.Sharpness(im).enhance(1.12)
     return im
 
 
